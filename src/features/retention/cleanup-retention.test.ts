@@ -12,13 +12,14 @@ describe("cleanupExpiredEvent", () => {
     await cleanupExpiredEvent({
       eventId: "event-1",
       photos: [{ id: "a", tempPath: "tmp/a.jpg", originalPath: "final/a-clean.jpg", filteredPath: "final/a-filtered.jpg" }],
+      landingPaths: ["draft/event-1/x.jpg", "live/event-1/x.jpg"],
     }, { remove, deleteEvent });
-    expect(calls).toEqual(["wedding-temp:tmp/a.jpg", "wedding-photos:final/a-clean.jpg|final/a-filtered.jpg", "database"]);
+    expect(calls).toEqual(["wedding-temp:tmp/a.jpg", "wedding-photos:final/a-clean.jpg|final/a-filtered.jpg", "wedding-landing:draft/event-1/x.jpg|live/event-1/x.jpg", "database"]);
   });
 
   it("preserves database metadata if object deletion fails", async () => {
     const deleteEvent = vi.fn();
-    await expect(cleanupExpiredEvent({ eventId: "event-1", photos: [{ id: "a", tempPath: "tmp/a.jpg", originalPath: null, filteredPath: null }] }, {
+    await expect(cleanupExpiredEvent({ eventId: "event-1", photos: [{ id: "a", tempPath: "tmp/a.jpg", originalPath: null, filteredPath: null }], landingPaths: [] }, {
       remove: vi.fn().mockRejectedValue(new Error("storage unavailable")), deleteEvent,
     })).rejects.toThrow("storage unavailable");
     expect(deleteEvent).not.toHaveBeenCalled();
@@ -27,7 +28,7 @@ describe("cleanupExpiredEvent", () => {
   it("removes derived partial assets for more than one API page of photos", async () => {
     const remove = vi.fn().mockResolvedValue(undefined);
     const photos = Array.from({ length: 1201 }, (_, index) => ({ id: `photo-${index}`, tempPath: null, originalPath: null, filteredPath: null }));
-    await cleanupExpiredEvent({ eventId: "event-1", photos }, { remove, deleteEvent: vi.fn() });
+    await cleanupExpiredEvent({ eventId: "event-1", photos, landingPaths: [] }, { remove, deleteEvent: vi.fn() });
 
     expect(remove).toHaveBeenCalledTimes(25);
     expect(remove).toHaveBeenCalledWith("wedding-photos", expect.arrayContaining([

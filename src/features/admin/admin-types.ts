@@ -4,10 +4,14 @@ export type AdminSnapshot = {
   event: {
     id: string;
     name: string;
+    timezone: string;
+    uploadStartsAt: string;
+    uploadEndsAt: string;
+    votingStartsAt: string;
+    votingEndsAt?: string;
     uploadsPaused: boolean;
     votingPaused: boolean;
     winnersRevealed: boolean;
-    votingEndsAt?: string;
     retentionAt: string;
     shotLimit: number;
   };

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Camera, Download, Eye, EyeOff, Heart, Image as ImageIcon, LogOut, Pause, Play, ShieldCheck, Trophy, Users } from "lucide-react";
+import { Camera, Download, Eye, EyeOff, Heart, Image as ImageIcon, LogOut, Pause, Play, Settings, ShieldCheck, Trophy, Users } from "lucide-react";
 
 import type { AdminSnapshot } from "./admin-types";
+import { EventSettingsForm } from "./EventSettingsForm";
+import { LandingPhotos } from "./LandingPhotos";
 
 async function defaultUpdateEvent(update: Record<string, boolean | string>) {
   const response = await fetch("/api/organizer/event", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(update) });
@@ -94,7 +96,7 @@ export function AdminDashboard({
     <main className="admin-shell">
       <aside className="admin-rail">
         <div className="admin-monogram">WR</div>
-        <nav aria-label="Organizer sections"><a href="#overview" aria-current="page"><ImageIcon /> Overview</a><a href="#rankings"><Trophy /> Rankings</a><a href="#controls"><ShieldCheck /> Controls</a></nav>
+        <nav aria-label="Organizer sections"><a href="#overview" aria-current="page"><ImageIcon /> Overview</a><a href="#landing"><ImageIcon /> Landing</a><a href="#rankings"><Trophy /> Rankings</a><a href="#controls"><ShieldCheck /> Controls</a><a href="#settings"><Settings /> Settings</a></nav>
         <a className="admin-export-link" href={`/api/organizer/export-manifest?event=${snapshot.event.id}`}><Download /> Export manifest</a>
         <form action="/api/organizer/sign-out" method="post"><button className="admin-export-link" type="submit"><LogOut /> Sign out</button></form>
       </aside>
@@ -114,8 +116,13 @@ export function AdminDashboard({
           <div><strong>Voting</strong><span>{snapshot.event.votingPaused ? "Closed" : "Open"}</span></div>
           <button onClick={() => void changeEvent({ votingPaused: !snapshot.event.votingPaused })}>{snapshot.event.votingPaused ? <Play /> : <Pause />}{snapshot.event.votingPaused ? "Reopen voting" : "Close voting"}</button>
           <button className="reveal-button" onClick={() => void changeEvent({ winnersRevealed: !snapshot.event.winnersRevealed })}><Trophy />{snapshot.event.winnersRevealed ? "Hide winners" : "Reveal winners"}</button>
-          <label className="voting-deadline">Voting deadline<input type="datetime-local" defaultValue={snapshot.event.votingEndsAt?.slice(0, 16)} onChange={(event) => { if (event.target.value) void changeEvent({ votingEndsAt: new Date(event.target.value).toISOString() }); }} /></label>
           <button className="danger-button" onClick={() => void rotateAccess()}><ShieldCheck /> Revoke guests & rotate QR</button>
+        </section>
+        <section id="landing">
+          <LandingPhotos eventName={snapshot.event.name} />
+        </section>
+        <section id="settings">
+          <EventSettingsForm event={snapshot.event} onSaved={(name) => setSnapshot((current) => ({ ...current, event: { ...current.event, name } }))} />
         </section>
         <section className="ranking-panel" id="rankings">
           <div className="panel-title"><div><span className="eyebrow">Private until reveal</span><h2>Contest ranking</h2></div><span>{snapshot.stats.visible + snapshot.stats.hidden} photos</span></div>

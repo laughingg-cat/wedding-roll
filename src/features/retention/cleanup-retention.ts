@@ -1,10 +1,11 @@
 type ExpiredEvent = {
   eventId: string;
   photos: Array<{ id: string; tempPath: string | null; originalPath: string | null; filteredPath: string | null }>;
+  landingPaths: string[];
 };
 
 type CleanupDependencies = {
-  remove(bucket: "wedding-temp" | "wedding-photos", paths: string[]): Promise<void>;
+  remove(bucket: "wedding-temp" | "wedding-photos" | "wedding-landing", paths: string[]): Promise<void>;
   deleteEvent(eventId: string): Promise<void>;
 };
 
@@ -20,6 +21,7 @@ export async function cleanupExpiredEvent(event: ExpiredEvent, dependencies: Cle
   ]))];
   for (const batch of chunks(temporary)) await dependencies.remove("wedding-temp", batch);
   for (const batch of chunks(final)) await dependencies.remove("wedding-photos", batch);
+  for (const batch of chunks(event.landingPaths)) await dependencies.remove("wedding-landing", batch);
   await dependencies.deleteEvent(event.eventId);
-  return { removedObjects: temporary.length + final.length };
+  return { removedObjects: temporary.length + final.length + event.landingPaths.length };
 }

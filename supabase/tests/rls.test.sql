@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(55);
 
 select ok(relrowsecurity, 'events has RLS') from pg_class where oid = 'public.events'::regclass;
 select ok(relrowsecurity, 'guest_sessions has RLS') from pg_class where oid = 'public.guest_sessions'::regclass;
@@ -8,6 +8,8 @@ select ok(relrowsecurity, 'likes has RLS') from pg_class where oid = 'public.lik
 select ok(relrowsecurity, 'winner_selections has RLS') from pg_class where oid = 'public.winner_selections'::regclass;
 select ok(relrowsecurity, 'event_admins has RLS') from pg_class where oid = 'public.event_admins'::regclass;
 select ok(relrowsecurity, 'rate_limit_buckets has RLS') from pg_class where oid = 'public.rate_limit_buckets'::regclass;
+select ok(relrowsecurity, 'event_landing_photos has RLS') from pg_class where oid = 'public.event_landing_photos'::regclass;
+select ok(relrowsecurity, 'event_landing_photo_drafts has RLS') from pg_class where oid = 'public.event_landing_photo_drafts'::regclass;
 select has_trigger('public', 'photos', 'photos_touch_updated_at', 'photo updates advance the moderation sync timestamp');
 
 select ok(not has_table_privilege('anon', 'public.events', 'select,insert,update,delete'), 'anon cannot access events');
@@ -24,11 +26,17 @@ select ok(not has_table_privilege('anon', 'public.event_admins', 'select,insert,
 select ok(not has_table_privilege('authenticated', 'public.event_admins', 'select,insert,update,delete'), 'authenticated cannot access admins');
 select ok(not has_table_privilege('anon', 'public.rate_limit_buckets', 'select,insert,update,delete'), 'anon cannot access rate limits');
 select ok(not has_table_privilege('authenticated', 'public.rate_limit_buckets', 'select,insert,update,delete'), 'authenticated cannot access rate limits');
+select ok(not has_table_privilege('anon', 'public.event_landing_photos', 'select,insert,update,delete'), 'anon cannot access landing photos');
+select ok(not has_table_privilege('authenticated', 'public.event_landing_photos', 'select,insert,update,delete'), 'authenticated cannot access landing photos');
+select ok(not has_table_privilege('anon', 'public.event_landing_photo_drafts', 'select,insert,update,delete'), 'anon cannot access landing drafts');
+select ok(not has_table_privilege('authenticated', 'public.event_landing_photo_drafts', 'select,insert,update,delete'), 'authenticated cannot access landing drafts');
 
 select is(public, false, 'temporary bucket is private') from storage.buckets where id = 'wedding-temp';
 select is(public, false, 'photo bucket is private') from storage.buckets where id = 'wedding-photos';
 select is(file_size_limit, 6291456::bigint, 'temporary bucket is limited to 6 MiB') from storage.buckets where id = 'wedding-temp';
 select is(file_size_limit, 6291456::bigint, 'photo bucket is limited to 6 MiB') from storage.buckets where id = 'wedding-photos';
+select is(public, false, 'landing bucket is private') from storage.buckets where id = 'wedding-landing';
+select is(file_size_limit, 6291456::bigint, 'landing bucket is limited to 6 MiB') from storage.buckets where id = 'wedding-landing';
 
 select ok(not has_function_privilege('anon', 'public.reserve_photo(uuid,uuid,public.photo_preset,text,timestamptz)', 'execute'), 'anon cannot reserve directly');
 select ok(not has_function_privilege('authenticated', 'public.reserve_photo(uuid,uuid,public.photo_preset,text,timestamptz)', 'execute'), 'authenticated cannot reserve directly');
@@ -40,6 +48,16 @@ select ok(not has_function_privilege('authenticated', 'public.rotate_event_acces
 select ok(has_function_privilege('service_role', 'public.rotate_event_access(uuid,text,timestamptz)', 'execute'), 'service role can rotate access');
 select ok(not has_function_privilege('authenticated', 'public.admin_event_photos(uuid)', 'execute'), 'authenticated cannot read admin rankings directly');
 select ok(has_function_privilege('service_role', 'public.admin_event_photos(uuid)', 'execute'), 'service role can read admin rankings');
+select ok(not has_function_privilege('authenticated', 'public.bootstrap_event(uuid[],text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,integer)', 'execute'), 'authenticated cannot bootstrap an event directly');
+select ok(has_function_privilege('service_role', 'public.bootstrap_event(uuid[],text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,integer)', 'execute'), 'service role can bootstrap an event');
+select ok(not has_function_privilege('authenticated', 'public.update_event_settings(uuid,text,text,timestamptz,timestamptz,timestamptz,timestamptz,integer)', 'execute'), 'authenticated cannot edit event settings directly');
+select ok(has_function_privilege('service_role', 'public.update_event_settings(uuid,text,text,timestamptz,timestamptz,timestamptz,timestamptz,integer)', 'execute'), 'service role can edit event settings');
+select ok(not has_function_privilege('authenticated', 'public.set_landing_draft_cover(uuid,uuid)', 'execute'), 'authenticated cannot set landing cover directly');
+select ok(has_function_privilege('service_role', 'public.set_landing_draft_cover(uuid,uuid)', 'execute'), 'service role can set landing cover');
+select ok(not has_function_privilege('authenticated', 'public.reorder_landing_drafts(uuid,uuid[])', 'execute'), 'authenticated cannot reorder landing drafts directly');
+select ok(has_function_privilege('service_role', 'public.reorder_landing_drafts(uuid,uuid[])', 'execute'), 'service role can reorder landing drafts');
+select ok(not has_function_privilege('authenticated', 'public.replace_published_landing(uuid,jsonb)', 'execute'), 'authenticated cannot swap published landing directly');
+select ok(has_function_privilege('service_role', 'public.replace_published_landing(uuid,jsonb)', 'execute'), 'service role can swap published landing');
 
 insert into public.events(id,name,timezone,access_token_hash,upload_starts_at,upload_ends_at,voting_starts_at,voting_ends_at,retention_at)
 values ('00000000-0000-0000-0000-000000000001','test','UTC',repeat('a',64),now()-interval '1 hour',now()+interval '1 hour',now()-interval '1 hour',now()+interval '1 hour',now()+interval '721 hours');

@@ -3,11 +3,24 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
-export function WelcomeForm({ eventName, onJoined }: { eventName: string; onJoined: (path: string) => void }) {
+export type LandingPhotoView = { mediaUrl: string; altText: string; isCover?: boolean };
+
+export function WelcomeForm({
+  eventName,
+  landingPhotos,
+  onJoined,
+}: {
+  eventName: string;
+  landingPhotos?: LandingPhotoView[];
+  onJoined: (path: string) => void;
+}) {
   const [displayName, setDisplayName] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const hero = landingPhotos?.find((photo) => photo.isCover) ?? landingPhotos?.[0];
+  const extra = landingPhotos?.filter((photo) => photo !== hero) ?? [];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,11 +48,23 @@ export function WelcomeForm({ eventName, onJoined }: { eventName: string; onJoin
 
   return (
     <main className="welcome-shell">
-      <section className="welcome-photo" aria-label={`${eventName} wedding photo`}>
+      <section
+        className="welcome-photo"
+        aria-label={`${eventName} wedding photo`}
+        style={hero?.mediaUrl ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.06), rgba(0,0,0,.44)), url(${hero.mediaUrl})` } : undefined}
+      >
         <div className="welcome-copy">
           <h1>Our<br />Wedding<br />Roll</h1>
           <p>Same night.<br />Different perspectives.<br />All part of the story.</p>
         </div>
+        {extra.length > 0 ? (
+          <div className="welcome-strip" aria-hidden="true">
+            {extra.slice(0, 5).map((photo, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={index} src={photo.mediaUrl} alt="" />
+            ))}
+          </div>
+        ) : null}
       </section>
       <form className="welcome-sheet" onSubmit={submit} noValidate>
         <p className="event-name">{eventName}</p>
@@ -72,4 +97,3 @@ export function WelcomeForm({ eventName, onJoined }: { eventName: string; onJoin
     </main>
   );
 }
-

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminDashboard } from "./AdminDashboard";
 
@@ -8,6 +8,11 @@ const snapshot = {
   event: {
     id: "event-1",
     name: "Taylor & Sam",
+    timezone: "Asia/Tokyo",
+    uploadStartsAt: "2027-08-23T23:00:00.000Z",
+    uploadEndsAt: "2027-08-24T14:00:00.000Z",
+    votingStartsAt: "2027-08-23T23:00:00.000Z",
+    votingEndsAt: "2027-08-25T03:00:00.000Z",
     uploadsPaused: false,
     votingPaused: false,
     winnersRevealed: false,
@@ -17,6 +22,15 @@ const snapshot = {
   stats: { guests: 18, visible: 126, hidden: 2, failed: 3, processing: 1 },
   photos: [{ id: "photo-1", author: "Maya", likeCount: 24, status: "visible" as const, capturedAt: "2027-08-24T10:30:00.000Z", rank: 1, tied: false }],
 };
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ drafts: [], published: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+});
 
 describe("AdminDashboard", () => {
   it("pauses uploads with an explicit control", async () => {
