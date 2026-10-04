@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Images, RefreshCw, SwitchCamera, X } from "lucide-react";
 
 import { clearPendingCapture, loadPendingCapture, type PendingCapture } from "@/features/camera/pending-capture";
@@ -88,6 +88,13 @@ export function CameraExperience({
   const [status, setStatus] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [recoveredPending, setRecoveredPending] = useState<PendingCapture | null>(null);
+
+  const attachVideo = useCallback((video: HTMLVideoElement | null) => {
+    videoRef.current = video;
+    if (!video || !streamRef.current) return;
+    video.srcObject = streamRef.current;
+    void video.play().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +200,7 @@ export function CameraExperience({
 
   return (
     <main className="camera-shell">
-      <video ref={videoRef} className={`camera-video preset-${preset}`} autoPlay muted playsInline aria-label="Live camera preview" />
+      <video ref={attachVideo} className={`camera-video preset-${preset}`} autoPlay muted playsInline aria-label="Live camera preview" />
       <div className="camera-vignette" aria-hidden="true" />
       <div className="camera-topbar">
         <a href="/gallery" className="icon-button" aria-label="Open gallery"><Images /></a>

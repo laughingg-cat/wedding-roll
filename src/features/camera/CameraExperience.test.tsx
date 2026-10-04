@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -53,6 +53,31 @@ describe("CameraExperience", () => {
 
     expect(await screen.findByText("Uploaded — 11 shots left")).toBeVisible();
     expect(uploadCapture).toHaveBeenCalledWith(expect.any(Blob), "hp5_plus", null, expect.any(Function));
+  });
+
+  it("reattaches the active camera stream after a successful upload", async () => {
+    const user = userEvent.setup();
+    const stream = { getTracks: () => [] } as unknown as MediaStream;
+    const startCamera = vi.fn().mockResolvedValue(stream);
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+
+    render(
+      <CameraExperience
+        shotsRemaining={12}
+        startCamera={startCamera}
+        captureFrame={capture}
+        uploadCapture={vi.fn().mockResolvedValue({ photoId: "photo-1" })}
+      />,
+    );
+
+    await waitFor(() => expect((screen.getByLabelText("Live camera preview") as HTMLVideoElement).srcObject).toBe(stream));
+    await user.click(screen.getByRole("button", { name: "Take photo" }));
+    await user.click(await screen.findByRole("button", { name: "Use Photo" }));
+
+    const restoredPreview = await screen.findByLabelText("Live camera preview");
+    expect((restoredPreview as HTMLVideoElement).srcObject).toBe(stream);
+    expect(startCamera).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenCalledTimes(2);
   });
 
   it("shows whether the photo is uploading or developing", async () => {
