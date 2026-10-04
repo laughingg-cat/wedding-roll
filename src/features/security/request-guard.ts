@@ -2,8 +2,15 @@ import { createHmac } from "node:crypto";
 
 export function assertTrustedMutationOrigin(headers: Headers, siteUrl: string) {
   const origin = headers.get("origin");
-  const expected = new URL(siteUrl).origin;
-  if (!origin || origin !== expected) throw new Error("Untrusted request origin");
+  if (!origin) throw new Error("Untrusted request origin");
+
+  if (origin === new URL(siteUrl).origin) return;
+
+  const forwardedHost = headers.get("x-forwarded-host") ?? headers.get("host");
+  const host = forwardedHost?.split(",")[0]?.trim();
+  if (host && new URL(origin).host === host) return;
+
+  throw new Error("Untrusted request origin");
 }
 
 export function readClientIp(headers: Headers) {
