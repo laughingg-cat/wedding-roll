@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { assertTrustedMutationOrigin } from "@/features/security/request-guard";
-import { serverEnv } from "@/lib/env";
 import { authSupabase } from "@/lib/supabase/auth-server";
 
 export async function POST(request: NextRequest) {
-  const env = serverEnv();
   try {
-    assertTrustedMutationOrigin(request.headers, env.NEXT_PUBLIC_SITE_URL);
+    const origin = request.headers.get("origin");
+    const siteOrigin = request.nextUrl.origin;
+    if (!origin || origin !== siteOrigin) {
+      return NextResponse.json({ error: "Untrusted request origin" }, { status: 403 });
+    }
 
     const body = (await request.json()) as { email?: unknown };
     const email = typeof body.email === "string" ? body.email.trim() : "";
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       email,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/auth/callback`,
+        emailRedirectTo: `${siteOrigin}/auth/callback`,
       },
     });
 
