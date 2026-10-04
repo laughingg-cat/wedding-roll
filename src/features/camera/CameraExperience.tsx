@@ -4,9 +4,18 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Camera, Images, RefreshCw, SwitchCamera, X } from "lucide-react";
 
 import { clearPendingCapture, loadPendingCapture, type PendingCapture } from "@/features/camera/pending-capture";
+import type { CaptureUploadPhase } from "@/features/camera/upload-capture";
 import type { PresetId } from "@/features/shared/domain";
 
 type Capture = { blob: Blob; previewUrl: string };
+
+const UPLOAD_STATUS: Record<CaptureUploadPhase, string> = {
+  preparing: "Preparing photo…",
+  reserving: "Securing upload…",
+  uploading: "Uploading photo…",
+  processing: "Developing film…",
+  complete: "Adding to album…",
+};
 
 const PRESETS: Array<{ id: PresetId; label: string }> = [
   { id: "original", label: "Original" },
@@ -64,7 +73,7 @@ export function CameraExperience({
   shotsRemaining: number;
   startCamera?: (facingMode: "environment" | "user") => Promise<MediaStream | null>;
   captureFrame?: () => Promise<Capture>;
-  uploadCapture: (blob: Blob, preset: PresetId, recovered?: PendingCapture | null) => Promise<{ photoId: string }>;
+  uploadCapture: (blob: Blob, preset: PresetId, recovered?: PendingCapture | null, onProgress?: (phase: CaptureUploadPhase) => void) => Promise<{ photoId: string }>;
   loadPending?: () => Promise<PendingCapture | null>;
   createPreviewUrl?: (blob: Blob) => string;
   clearPending?: () => Promise<void>;
@@ -146,7 +155,7 @@ export function CameraExperience({
     setUploading(true);
     setStatus("Saving your photo…");
     try {
-      await uploadCapture(capture.blob, preset, recoveredPending);
+      await uploadCapture(capture.blob, preset, recoveredPending, (phase) => setStatus(UPLOAD_STATUS[phase]));
       releasePreview();
       setCapture(null);
       setRecoveredPending(null);

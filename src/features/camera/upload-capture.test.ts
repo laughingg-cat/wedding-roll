@@ -21,6 +21,20 @@ function dependencies(overrides: Partial<CaptureUploadDependencies> = {}): Captu
 }
 
 describe("runCaptureUpload", () => {
+  it("reports the network phase so slow uploads can be identified on-device", async () => {
+    const onProgress = vi.fn();
+    const deps = dependencies({ onProgress });
+
+    await runCaptureUpload(new Blob(["jpeg"], { type: "image/jpeg" }), "original", deps);
+
+    expect(onProgress.mock.calls.map(([phase]) => phase)).toEqual([
+      "reserving",
+      "uploading",
+      "processing",
+      "complete",
+    ]);
+  });
+
   it("persists before networking and clears only after server completion", async () => {
     const calls: string[] = [];
     const deps = dependencies({

@@ -79,8 +79,12 @@ export async function finalizeGuestPhoto(
   try {
     const temporary = await dependencies.downloadTemp(claimedPhoto.tempPath);
     const processed = await dependencies.process(temporary, claimedPhoto.preset);
-    await dependencies.uploadFinal(cleanPath, processed.clean);
-    await dependencies.uploadFinal(filteredPath, processed.filtered);
+    const uploadResults = await Promise.allSettled([
+      dependencies.uploadFinal(cleanPath, processed.clean),
+      dependencies.uploadFinal(filteredPath, processed.filtered),
+    ]);
+    const failedUpload = uploadResults.find((result) => result.status === "rejected");
+    if (failedUpload?.status === "rejected") throw failedUpload.reason;
     completionStarted = true;
     await dependencies.complete({
       photoId,

@@ -73,6 +73,47 @@ describe("finalizeGuestPhoto", () => {
     expect(result).toEqual({ state: "complete" });
   });
 
+  it("uploads clean and filtered assets concurrently", async () => {
+    const started: string[] = [];
+    const releases: Array<() => void> = [];
+    const uploadFinal = vi.fn((path: string) => new Promise<void>((resolve) => {
+      started.push(path);
+      releases.push(resolve);
+    }));
+    const deps = pipeline({ uploadFinal });
+
+    const finalization = finalizeGuestPhoto("photo-1", "guest-1", deps);
+    await vi.waitFor(() => expect(started).toEqual([
+      "event-1/photo-1/clean.jpg",
+      "event-1/photo-1/filtered.jpg",
+    ]));
+    releases.forEach((release) => release());
+
+    await expect(finalization).resolves.toEqual({ state: "complete" });
+  });
+
+  it("waits for both final uploads to settle before cleaning up a failed pair", async () => {
+    let releaseFiltered: (() => void) | undefined;
+    const filteredUpload = new Promise<void>((resolve) => { releaseFiltered = resolve; });
+    const removeObjects = vi.fn().mockResolvedValue(undefined);
+    const uploadFinal = vi.fn((path: string) => path.endsWith("clean.jpg")
+      ? Promise.reject(new Error("clean upload failed"))
+      : filteredUpload);
+    const deps = pipeline({ uploadFinal, removeObjects });
+
+    const finalization = finalizeGuestPhoto("photo-1", "guest-1", deps);
+    await vi.waitFor(() => expect(uploadFinal).toHaveBeenCalledTimes(2));
+    await Promise.resolve();
+    expect(removeObjects).not.toHaveBeenCalled();
+
+    releaseFiltered?.();
+    await expect(finalization).rejects.toThrow("clean upload failed");
+    expect(removeObjects).toHaveBeenCalledWith("wedding-photos", [
+      "event-1/photo-1/clean.jpg",
+      "event-1/photo-1/filtered.jpg",
+    ]);
+  });
+
   it("is idempotent when another request already completed or is processing", async () => {
     const complete = pipeline({ claim: vi.fn().mockResolvedValue({ state: "complete" }) });
     const busy = pipeline({ claim: vi.fn().mockResolvedValue({ state: "busy" }) });

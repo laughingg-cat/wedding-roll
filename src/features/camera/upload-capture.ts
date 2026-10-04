@@ -2,6 +2,7 @@
 
 import type { PresetId } from "@/features/shared/domain";
 import { browserSupabase } from "@/lib/supabase/browser";
+import { prepareCaptureForUpload } from "./prepare-capture";
 
 import { clearPendingCapture, savePendingCapture, type PendingCapture } from "./pending-capture";
 
@@ -11,6 +12,8 @@ type Reservation = {
   expiresAt?: string;
 };
 
+export type CaptureUploadPhase = "preparing" | "reserving" | "uploading" | "processing" | "complete";
+
 export type CaptureUploadDependencies = {
   savePending(input: PendingCapture): Promise<void>;
   clearPending(): Promise<void>;
@@ -19,6 +22,7 @@ export type CaptureUploadDependencies = {
   finalize(photoId: string): Promise<{ state: "complete" | "processing" | "expired" }>;
   wait(milliseconds: number): Promise<void>;
   now(): Date;
+  onProgress?(phase: Exclude<CaptureUploadPhase, "preparing">): void;
 };
 
 export async function runCaptureUpload(
@@ -34,14 +38,17 @@ export async function runCaptureUpload(
   // may have committed even if its response was lost after nominal expiry.
   const shouldResume = Boolean(recovered?.reservation && (recovered.uploaded || recoveredUnexpired));
   await dependencies.savePending({ blob, preset, createdAt, reservation: shouldResume ? recovered?.reservation : undefined, uploaded: shouldResume ? recovered?.uploaded : false });
+  if (!(shouldResume && recovered?.reservation)) dependencies.onProgress?.("reserving");
   let reservation = shouldResume && recovered?.reservation ? recovered.reservation : await dependencies.reserve(preset);
   await dependencies.savePending({ blob, preset, createdAt, reservation, uploaded: Boolean(shouldResume && recovered?.uploaded) });
   if (!(shouldResume && recovered?.uploaded)) {
+    dependencies.onProgress?.("uploading");
     await dependencies.upload(reservation.upload.path, reservation.upload.token, blob);
     await dependencies.savePending({ blob, preset, createdAt, reservation, uploaded: true });
   }
   let mayRenewExpiredUpload = Boolean(recovered?.reservation && recovered.uploaded && !recoveredUnexpired);
 
+  dependencies.onProgress?.("processing");
   for (let attempt = 0; attempt < 6; attempt += 1) {
     let finalization: Awaited<ReturnType<CaptureUploadDependencies["finalize"]>>;
     try {
@@ -53,16 +60,20 @@ export async function runCaptureUpload(
     }
     if (finalization.state === "complete") {
       await dependencies.clearPending();
+      dependencies.onProgress?.("complete");
       return { photoId: reservation.photoId };
     }
     if (finalization.state === "expired") {
       if (!mayRenewExpiredUpload) throw new Error("This upload reservation expired. Please try again.");
+      dependencies.onProgress?.("reserving");
       reservation = await dependencies.reserve(preset);
       await dependencies.savePending({ blob, preset, createdAt, reservation, uploaded: false });
+      dependencies.onProgress?.("uploading");
       await dependencies.upload(reservation.upload.path, reservation.upload.token, blob);
       await dependencies.savePending({ blob, preset, createdAt, reservation, uploaded: true });
       mayRenewExpiredUpload = false;
       attempt = -1;
+      dependencies.onProgress?.("processing");
       continue;
     }
     if (attempt < 5) await dependencies.wait(1200);
@@ -77,8 +88,15 @@ async function jsonRequest<T>(url: string, init: RequestInit): Promise<T> {
   return body;
 }
 
-export async function uploadCapture(blob: Blob, preset: PresetId, recovered?: PendingCapture | null) {
-  return runCaptureUpload(blob, preset, {
+export async function uploadCapture(
+  blob: Blob,
+  preset: PresetId,
+  recovered?: PendingCapture | null,
+  onProgress?: (phase: CaptureUploadPhase) => void,
+) {
+  onProgress?.("preparing");
+  const prepared = recovered?.blob ?? await prepareCaptureForUpload(blob);
+  return runCaptureUpload(prepared, preset, {
     savePending: savePendingCapture,
     clearPending: clearPendingCapture,
     reserve: (selectedPreset) =>
@@ -97,5 +115,6 @@ export async function uploadCapture(blob: Blob, preset: PresetId, recovered?: Pe
     finalize: (photoId) => jsonRequest(`/api/photos/${photoId}/finalize`, { method: "POST" }),
     wait: (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds)),
     now: () => new Date(),
+    onProgress,
   }, recovered);
 }

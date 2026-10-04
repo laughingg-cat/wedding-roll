@@ -56,23 +56,26 @@ export async function processCapture(input: Buffer, preset: PresetId) {
     const normalized = sharp(input, { limitInputPixels: MAX_CAPTURE_PIXELS, failOn: "error" })
       .rotate()
       .resize({ width: MAX_CAPTURE_EDGE, height: MAX_CAPTURE_EDGE, fit: "inside", withoutEnlargement: true })
-      .removeAlpha()
-      .jpeg({ quality: 90, chromaSubsampling: "4:4:4", mozjpeg: true });
-    const clean = await normalized.toBuffer();
-    const cleanMetadata = await sharp(clean).metadata();
-    if (!cleanMetadata.width || !cleanMetadata.height) throw new Error("Capture dimensions are unavailable");
-
-    const filtered = preset === "original"
-      ? clean
-      : await applyPreset(sharp(clean), preset)
-          .jpeg({ quality: 88, chromaSubsampling: "4:4:4", mozjpeg: true })
+      .removeAlpha();
+    const cleanPromise = normalized.clone()
+      .jpeg({ quality: 86, chromaSubsampling: "4:2:0" })
+      .toBuffer({ resolveWithObject: true });
+    const filteredPromise = preset === "original"
+      ? null
+      : applyPreset(normalized.clone(), preset)
+          .jpeg({ quality: 84, chromaSubsampling: "4:2:0" })
           .toBuffer();
+    const [cleanResult, filteredResult] = await Promise.all([cleanPromise, filteredPromise]);
+    const clean = cleanResult.data;
+    const filtered = filteredResult ?? clean;
+    const { width, height } = cleanResult.info;
+    if (!width || !height) throw new Error("Capture dimensions are unavailable");
 
     return {
       clean,
       filtered,
-      width: cleanMetadata.width,
-      height: cleanMetadata.height,
+      width,
+      height,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

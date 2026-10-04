@@ -52,7 +52,24 @@ describe("CameraExperience", () => {
     await user.click(screen.getByRole("button", { name: "Use Photo" }));
 
     expect(await screen.findByText("Uploaded — 11 shots left")).toBeVisible();
-    expect(uploadCapture).toHaveBeenCalledWith(expect.any(Blob), "hp5_plus", null);
+    expect(uploadCapture).toHaveBeenCalledWith(expect.any(Blob), "hp5_plus", null, expect.any(Function));
+  });
+
+  it("shows whether the photo is uploading or developing", async () => {
+    const user = userEvent.setup();
+    let finish: ((value: { photoId: string }) => void) | undefined;
+    const uploadCapture = vi.fn((_blob, _preset, _recovered, onProgress) => {
+      onProgress?.("processing");
+      return new Promise<{ photoId: string }>((resolve) => { finish = resolve; });
+    });
+    render(<CameraExperience shotsRemaining={12} startCamera={async () => null} captureFrame={capture} uploadCapture={uploadCapture} />);
+
+    await user.click(screen.getByRole("button", { name: "Take photo" }));
+    await user.click(await screen.findByRole("button", { name: "Use Photo" }));
+
+    expect(await screen.findByText("Developing film…")).toBeVisible();
+    finish?.({ photoId: "photo-1" });
+    expect(await screen.findByText("Uploaded — 11 shots left")).toBeVisible();
   });
 
   it("offers native capture when live camera permission fails", async () => {
@@ -129,7 +146,7 @@ describe("CameraExperience", () => {
     expect(await screen.findByText("network lost")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Use Photo" }));
 
-    expect(uploadCapture).toHaveBeenNthCalledWith(2, expect.any(Blob), "original", pending);
+    expect(uploadCapture).toHaveBeenNthCalledWith(2, expect.any(Blob), "original", pending, expect.any(Function));
     expect(await screen.findByText("Uploaded — 11 shots left")).toBeVisible();
   });
 });

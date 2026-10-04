@@ -23,6 +23,7 @@ describe("processCapture", () => {
 
     expect(Math.max(result.width, result.height)).toBe(2400);
     expect(metadata.format).toBe("jpeg");
+    expect(metadata.chromaSubsampling).toBe("4:2:0");
     expect(metadata.orientation).toBeUndefined();
     expect(metadata.exif).toBeUndefined();
     expect(result.filtered.equals(result.clean)).toBe(true);
@@ -44,4 +45,3 @@ describe("processCapture", () => {
     await expect(processCapture(await fixture(5000, 5000), "original")).rejects.toThrow("24 megapixels");
   });
 });
-

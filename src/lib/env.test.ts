@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { readServerEnv } from "./env";
 
@@ -27,8 +27,13 @@ describe("readServerEnv", () => {
   });
 
   it("allows localhost over HTTP for development", () => {
-    expect(readServerEnv({ ...valid, NEXT_PUBLIC_SITE_URL: "http://localhost:3000" }).NEXT_PUBLIC_SITE_URL).toBe(
-      "http://localhost:3000",
-    );
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      expect(readServerEnv({ ...valid, NEXT_PUBLIC_SITE_URL: "http://localhost:3000" }).NEXT_PUBLIC_SITE_URL).toBe(
+        "http://localhost:3000",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
