@@ -12,7 +12,7 @@ export function OrganizerLoginForm() {
     event.preventDefault();
     setBusy(true);
     const email = new FormData(event.currentTarget).get("email")?.toString().trim() ?? "";
-    const { error } = await browserSupabase().auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/auth/callback?next=/organizer` } });
+    const { error } = await browserSupabase().auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/auth/callback` } });
     setMessage(error ? "This email is not authorized for the wedding." : "Check your email for a secure sign-in link.");
     setBusy(false);
   }
