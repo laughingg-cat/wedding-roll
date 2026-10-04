@@ -29,7 +29,11 @@ const serverEnvSchema = z
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 export function readServerEnv(source: Record<string, string | undefined>): ServerEnv {
-  return serverEnvSchema.parse(source);
+  return serverEnvSchema.parse({
+    ...source,
+    SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL ?? source.SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY: source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? source.SUPABASE_PUBLISHABLE_KEY,
+  });
 }
 
 let cached: ServerEnv | undefined;
